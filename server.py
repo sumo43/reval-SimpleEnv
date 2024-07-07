@@ -14,8 +14,13 @@ import cv2
 import io
 from simpler_env.policies.rt1.rt1_model import RT1Inference
 import subprocess
-
 import absl.logging
+from uuid import uuid4
+from time import sleep
+
+import logging
+logger = logging.getLogger(__name__)
+
 absl.logging.set_verbosity(absl.logging.ERROR)
 
 RT_1_CHECKPOINTS = {
@@ -77,6 +82,8 @@ ckpt_path = get_rt_1_checkpoint("rt_1_x")
 rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
 print("loaded rt_1_x")
 
+model = rt_1_x_model
+
 """
 ckpt_path = get_rt_1_checkpoint("rt_1_400k")
 rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
@@ -92,7 +99,7 @@ print("loaded rt_1_1k")
 """
 
 
-def setup_env(env_name: str, model_name: str):
+def setup_env(env_name: str, model_name: str, instruction: str):
     # @title Select your model and environment
     
     task_name = "google_robot_pick_coke_can"  # @param ["google_robot_pick_coke_can", "google_robot_move_near", "google_robot_open_drawer", "google_robot_close_drawer", "widowx_spoon_on_towel", "widowx_carrot_on_plate", "widowx_stack_cube", "widowx_put_eggplant_in_basket"]
@@ -109,7 +116,7 @@ def setup_env(env_name: str, model_name: str):
     sapien.render_config.rt_use_denoiser = False
     
     obs, reset_info = env.reset()
-    instruction = env.get_language_instruction()
+    #instruction = env.get_language_instruction()
 
     if "google" in task_name:
       policy_setup = "google_robot"
@@ -120,7 +127,7 @@ def setup_env(env_name: str, model_name: str):
 
 def run_env(env, instruction):
     obs, reset_info = env.reset()
-    instruction = env.get_language_instruction()
+    #instruction = env.get_language_instruction()
     model.reset(instruction)
     print(instruction)
     
@@ -143,9 +150,9 @@ def run_env(env, instruction):
     return images
 
 def generate_video_path():
-    return os.path.join(BASE_PATH, str(uuidv4()) + ".mp4")
+    return os.path.join(BASE_PATH, str(uuid4()) + ".mp4")
 
-def arrays_to_video(arrays, output_path, fps=30):
+def arrays_to_video(arrays, output_path, fps=10):
     height, width, layers = arrays[0].shape
     size = (width, height)
     
@@ -156,18 +163,18 @@ def arrays_to_video(arrays, output_path, fps=30):
     out.release()
     return 
     
-def prompt2video(env_name: str, model_name: str):
-    env, instruction = setup_env(env_name, model_name)
+def prompt2video(env_name: str, model_name: str, instruction_name:str):
+    env, instruction = setup_env(env_name, model_name, instruction_name)
     images = run_env(env, instruction)
     video_path = generate_video_path()
-    arrays_to_video(images, generate_video_path())
+    arrays_to_video(images, video_path)
     assert os.path.exists(video_path)
     return video_path
 
 @app.post("/create-video/")
-async def create_video(env_name: str, model_name:str):
-    video_path = prompt2video(env_name, model_name)
-    logging.info(f"saved video to {video_path}")
+async def create_video(env_name: str, model_name:str, instruction_name: str):
+    video_path = prompt2video(env_name, model_name, instruction_name)
+    logger.info(f"saved video to {video_path}")
     return StreamingResponse(io.open(video_path, "rb"), media_type="video/mp4")
 
 if __name__ == "__main__":
