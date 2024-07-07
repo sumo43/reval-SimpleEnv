@@ -30,14 +30,27 @@ def run_cmd(cmd:str ):
     tmp = proc.stdout.read()
     return tmp
 
-def get_rt_1_checkpoint(name, ckpt_dir="./SimplerEnv/checkpoints"):
+def get_rt_1_checkpoint(name, ckpt_dir="./checkpoints"):
   assert name in RT_1_CHECKPOINTS, name
   ckpt_name = RT_1_CHECKPOINTS[name]
   ckpt_path = os.path.join(ckpt_dir, ckpt_name)
+  print(ckpt_path)
   if not os.path.exists(ckpt_path):
     if name == "rt_1_x":
-      run_cmd(f"gsutil -m cp -r gs://gdm-robotics-open-x-embodiment/open_x_embodiment_and_rt_x_oss/{ckpt_name}.zip {ckpt_dir}")
-      run_cmd(f"unzip {ckpt_dir}/{ckpt_name}.zip -d {ckpt_dir}")
+      command = ["gsutil", "-m", "cp", "-r", f"gs://gdm-robotics-open-x-embodiment/open_x_embodiment_and_rt_x_oss/{ckpt_name}.zip", f"{ckpt_dir}"]
+      try:
+        subprocess.run(command, check=True)
+        print("command run")
+      except subprocess.CalledProcessError as e:
+        print(e.output)
+
+      command = ["unzip", f"{ckpt_dir}/{ckpt_name}.zip", "-d", f"{ckpt_dir}"]
+
+      try:
+        subprocess.run(command, check=True)
+        print("command run")
+      except subprocess.CalledProcessError as e:
+        print(e.output)
     else:
       run_cmd(f"gsutil -m cp -r gs://gdm-robotics-open-x-embodiment/open_x_embodiment_and_rt_x_oss/{ckpt_name} {ckpt_dir}")
   return ckpt_path
@@ -103,7 +116,7 @@ def setup_env(env_name: str, model_name: str):
     else:
       policy_setup = "widowx_bridge"
         
-    return env, instruction, policy_setup
+    return env, instruction #, policy_setup
 
 def run_env(env, instruction):
     obs, reset_info = env.reset()
@@ -145,7 +158,7 @@ def arrays_to_video(arrays, output_path, fps=30):
     
 def prompt2video(env_name: str, model_name: str):
     env, instruction = setup_env(env_name, model_name)
-    images = run_env()
+    images = run_env(env, instruction)
     video_path = generate_video_path()
     arrays_to_video(images, generate_video_path())
     assert os.path.exists(video_path)
