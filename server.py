@@ -82,9 +82,6 @@ ckpt_path = get_rt_1_checkpoint("rt_1_x")
 rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
 print("loaded rt_1_x")
 
-model = rt_1_x_model
-
-"""
 ckpt_path = get_rt_1_checkpoint("rt_1_400k")
 rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
 print("loaded rt_1_400k")
@@ -96,13 +93,20 @@ print("loaded rt_1_58k")
 ckpt_path = get_rt_1_checkpoint("rt_1_1k")
 rt_1_1k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
 print("loaded rt_1_1k")
-"""
 
+model_name_to_model = {
+    "rt_1_x" : rt_1_x_model,
+    "rt_1_400k": rt_1_400k_model,
+    "rt_1_58k": rt_1_58k_model,
+    "rt_1_1k": rt_1_1k_model
+}
 
-def setup_env(env_name: str, model_name: str, instruction: str):
+def setup_env(env_name: str, instruction: str):
     # @title Select your model and environment
+
+    task_name = env_name
     
-    task_name = "google_robot_pick_coke_can"  # @param ["google_robot_pick_coke_can", "google_robot_move_near", "google_robot_open_drawer", "google_robot_close_drawer", "widowx_spoon_on_towel", "widowx_carrot_on_plate", "widowx_stack_cube", "widowx_put_eggplant_in_basket"]
+    #task_name = "google_robot_pick_coke_can"  # @param ["google_robot_pick_coke_can", "google_robot_move_near", "google_robot_open_drawer", "google_robot_close_drawer", "widowx_spoon_on_towel", "widowx_carrot_on_plate", "widowx_stack_cube", "widowx_put_eggplant_in_basket"]
     
     if 'env' in locals():
       print("Closing existing env")
@@ -125,7 +129,8 @@ def setup_env(env_name: str, model_name: str, instruction: str):
         
     return env, instruction #, policy_setup
 
-def run_env(env, instruction):
+def run_env(env, instruction, model_name):
+    model = model_name_to_model[model_name]
     obs, reset_info = env.reset()
     #instruction = env.get_language_instruction()
     model.reset(instruction)
@@ -164,18 +169,41 @@ def arrays_to_video(arrays, output_path, fps=10):
     return 
     
 def prompt2video(env_name: str, model_name: str, instruction_name:str):
-    env, instruction = setup_env(env_name, model_name, instruction_name)
-    images = run_env(env, instruction)
+    env, instruction = setup_env(env_name, instruction_name)
+    images = run_env(env, instruction, model_name)
     video_path = generate_video_path()
     arrays_to_video(images, video_path)
     assert os.path.exists(video_path)
     return video_path
 
+def merge_videos(video1_path, video2_path):
+    merged_video_path = generate_video_path()
+
+    command = f'ffmpeg -i {video1_path} -i {video2_path} -filter_complex "[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]" -map "[vid]" -c:v libx264 -crf 23 -preset veryfast {merged_video_path}'
+    #command = ["ffmpeg", "-i", video1_path, "-i", video2_path, "-filter_complex", 
+    #'"[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]"', "-map", "'[vid]'", "-c:v", "libx264", "-crf", "23", "-preset", "veryfast", merged_video_path]
+
+    try:
+        subprocess.run(command, check=True, shell=True)
+        print("command run")
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+                                                                                                                                                                            
+    return merged_video_path
+
 @app.post("/create-video/")
-async def create_video(env_name: str, model_name:str, instruction_name: str):
-    video_path = prompt2video(env_name, model_name, instruction_name)
-    logger.info(f"saved video to {video_path}")
-    return StreamingResponse(io.open(video_path, "rb"), media_type="video/mp4")
+async def create_video(env_name: str, model1_name:str, model2_name: str, instruction_name: str):
+    video_path1 = prompt2video(env_name, model1_name, instruction_name)
+    logger.info(f"saved video1 to {video_path1}")
+
+    video_path2 = prompt2video(env_name, model2_name, instruction_name)
+    logger.info(f"saved video2 to {video_path2}")
+
+
+    merged_video_path = merge_videos(video_path1, video_path2)
+    
+    logger.info(f"saved video to {merged_video_path}")
+    return StreamingResponse(io.open(merged_video_path, "rb"), media_type="video/mp4")
 
 if __name__ == "__main__":
     import uvicorn
