@@ -15,6 +15,7 @@ import io
 from simpler_env.policies.rt1.rt1_model import RT1Inference
 import subprocess
 import absl.logging
+from simpler_env.policies.octo.octo_model import OctoInference
 from uuid import uuid4
 from time import sleep
 
@@ -76,29 +77,37 @@ model_names = [
 policy_setup = "google_robot"
 
 
-model_names = ["rt_1_x", "rt_1_400k", "rt_1_58k", "rt_1_1k"]#, "octo-base", "octo-small"]
+model_names = ["rt_1_x", "rt_1_400k", "rt_1_58k", "rt_1_1k", "octo-base", "octo-small"]
 
-ckpt_path = get_rt_1_checkpoint("rt_1_x")
-rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-print("loaded rt_1_x")
+#ckpt_path = get_rt_1_checkpoint("rt_1_x")
+#rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+#print("loaded rt_1_x")
 
-ckpt_path = get_rt_1_checkpoint("rt_1_400k")
-rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-print("loaded rt_1_400k")
+#ckpt_path = get_rt_1_checkpoint("rt_1_400k")
+#rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+#print("loaded rt_1_400k")
 
-ckpt_path = get_rt_1_checkpoint("rt_1_58k")
-rt_1_58k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-print("loaded rt_1_58k")
+#ckpt_path = get_rt_1_checkpoint("rt_1_58k")
+#rt_1_58k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+#print("loaded rt_1_58k")
 
-ckpt_path = get_rt_1_checkpoint("rt_1_1k")
-rt_1_1k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-print("loaded rt_1_1k")
+#ckpt_path = get_rt_1_checkpoint("rt_1_1k")
+#rt_1_1k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+#print("loaded rt_1_1k")
+
+octo_base = OctoInference(model_type='octo-base', policy_setup=policy_setup)
+print("loaded octo base")
+
+octo_small = OctoInference(model_type='octo-small', policy_setup=policy_setup)
+print("loaded octo small")
 
 model_name_to_model = {
-    "rt_1_x" : rt_1_x_model,
-    "rt_1_400k": rt_1_400k_model,
-    "rt_1_58k": rt_1_58k_model,
-    "rt_1_1k": rt_1_1k_model
+    #"rt_1_x" : rt_1_x_model,
+    #"rt_1_400k": rt_1_400k_model,
+    #"rt_1_58k": rt_1_58k_model,
+    #"rt_1_1k": rt_1_1k_model,
+    "octo-small": octo_small,
+    "octo-base": octo_base
 }
 
 def setup_env(env_name: str, instruction: str):
@@ -129,8 +138,24 @@ def setup_env(env_name: str, instruction: str):
         
     return env, instruction #, policy_setup
 
-def run_env(env, instruction, model_name):
+def run_env(env, instruction, model_name, env_name):
+
     model = model_name_to_model[model_name]
+    # set the policy setup from the ntbk without reinit
+    if 'google' in env_name:
+        model.policy_setup = "google_robot"
+        model.unnormalize_action = False
+        model.unnormalize_action_fxn = None
+        model.invert_gripper_action = False
+        model.action_rotation_mode = "axis_angle"
+    elif 'widowx' in env_name:
+        model.policy_setup = "google_robot"
+        model.unnormalize_action = True
+        model.unnormalize_action_fxn = model._unnormalize_action_widowx_bridge
+        model.invert_gripper_action = True
+        model.action_rotation_mode = "rpy" 
+
+    
     obs, reset_info = env.reset()
     #instruction = env.get_language_instruction()
     model.reset(instruction)
@@ -140,9 +165,11 @@ def run_env(env, instruction, model_name):
     images = [image]
     predicted_terminated, success, truncated = False, False, False
     timestep = 0
+    raw_action, action = None, None
     while not (predicted_terminated or truncated):
         # step the model; "raw_action" is raw model action output; "action" is the processed action to be sent into maniskill env
-        raw_action, action = model.step(image)
+        if raw_action is None:
+            raw_action, action = model.step(image)
         predicted_terminated = bool(action["terminate_episode"][0] > 0)
         obs, reward, success, truncated, info = env.step(
             np.concatenate([action["world_vector"], action["rot_axangle"], action["gripper"]])
@@ -152,6 +179,9 @@ def run_env(env, instruction, model_name):
         image = get_image_from_maniskill2_obs_dict(env, obs)
         images.append(image)
         timestep += 1
+
+        if timestep == 11:
+            break
     return images
 
 def generate_video_path():
@@ -170,7 +200,7 @@ def arrays_to_video(arrays, output_path, fps=10):
     
 def prompt2video(env_name: str, model_name: str, instruction_name:str):
     env, instruction = setup_env(env_name, instruction_name)
-    images = run_env(env, instruction, model_name)
+    images = run_env(env, instruction, model_name, env_name)
     video_path = generate_video_path()
     arrays_to_video(images, video_path)
     assert os.path.exists(video_path)
