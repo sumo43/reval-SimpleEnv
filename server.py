@@ -20,6 +20,21 @@ from uuid import uuid4
 from time import sleep
 
 import logging
+import tensorflow as tf
+from simpler_env.utils.action.action_ensemble import ActionEnsembler
+
+os.environ["DISPLAY"] = ""
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true"
+os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.25"
+
+
+gpus = tf.config.list_physical_devices("GPU")
+if len(gpus) > 0:
+	# prevent a single tf process from taking up all the GPU memory
+	tf.config.set_logical_device_configuration(
+		gpus[0],
+		[tf.config.LogicalDeviceConfiguration(memory_limit=10000)],
+	)
 logger = logging.getLogger(__name__)
 
 absl.logging.set_verbosity(absl.logging.ERROR)
@@ -71,17 +86,17 @@ ckpt_path = get_rt_1_checkpoint("rt_1_x")
 rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
 print("loaded rt_1_x")
 
-#ckpt_path = get_rt_1_checkpoint("rt_1_400k")
-#rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-#print("loaded rt_1_400k")
+ckpt_path = get_rt_1_checkpoint("rt_1_400k")
+rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+print("loaded rt_1_400k")
 
-#ckpt_path = get_rt_1_checkpoint("rt_1_58k")
-#rt_1_58k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-#print("loaded rt_1_58k")
+ckpt_path = get_rt_1_checkpoint("rt_1_58k")
+rt_1_58k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+print("loaded rt_1_58k")
 
-#ckpt_path = get_rt_1_checkpoint("rt_1_1k")
-#rt_1_1k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-#print("loaded rt_1_1k")
+ckpt_path = get_rt_1_checkpoint("rt_1_1k")
+rt_1_1k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+print("loaded rt_1_1k")
 
 octo_base = OctoInference(model_type='octo-base', policy_setup=policy_setup)
 print("loaded octo base")
@@ -91,9 +106,9 @@ print("loaded octo small")
 
 model_name_to_model = {
     "rt_1_x" : rt_1_x_model,
-    #"rt_1_400k": rt_1_400k_model,
-    #"rt_1_58k": rt_1_58k_model,
-    #"rt_1_1k": rt_1_1k_model,
+    "rt_1_400k": rt_1_400k_model,
+    "rt_1_58k": rt_1_58k_model,
+    "rt_1_1k": rt_1_1k_model,
     "octo-small": octo_small,
     "octo-base": octo_base
 }
@@ -130,18 +145,40 @@ def run_env(env, instruction, model_name, env_name):
 
     model = model_name_to_model[model_name]
     # set the policy setup from the ntbk without reinit
-    if 'google' in env_name:
-        model.policy_setup = "google_robot"
-        model.unnormalize_action = False
-        model.unnormalize_action_fxn = None
-        model.invert_gripper_action = False
-        model.action_rotation_mode = "axis_angle"
-    elif 'widowx' in env_name:
-        model.policy_setup = "google_robot"
-        model.unnormalize_action = True
-        model.unnormalize_action_fxn = model._unnormalize_action_widowx_bridge
-        model.invert_gripper_action = True
-        model.action_rotation_mode = "rpy" 
+    if 'rt' in model_name:
+        if 'google' in env_name:
+            model.policy_setup = "google_robot"
+            model.unnormalize_action = False
+            model.unnormalize_action_fxn = None
+            model.invert_gripper_action = False
+            model.action_rotation_mode = "axis_angle"
+        elif 'widowx' in env_name:
+            model.policy_setup = "google_robot"
+            model.unnormalize_action = True
+            model.unnormalize_action_fxn = model._unnormalize_action_widowx_bridge
+            model.invert_gripper_action = True
+            model.action_rotation_mode = "rpy" 
+            
+    elif 'octo' in model_name:
+        if policy_setup == "widowx_bridge":
+            model.dataset_id = env_name
+            model.action_ensemble = True
+            model.action_ensemble_temp = 0.0
+            model.sticky_gripper_num_repeat = 1
+            
+            model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
+            
+        elif policy_setup == "google_robot":
+            model.dataset_id = env_name
+            model.action_ensemble = True
+            model.action_ensemble_temp = 0.0
+            model.sticky_gripper_num_repeat = 15
+
+            model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
+        else:
+            raise NotImplementedError(f"Policy setup {policy_setup} not supported for octo models.")
+    else:
+        raise NotImplementedError(f"model {model_name} not supported.")
 
     
     obs, reset_info = env.reset()
