@@ -250,8 +250,8 @@ def merge_videos(video1_path, video2_path):
                                                                                                                                                                             
     return merged_video_path2
 
-@app.get("/create-video/")
-async def create_video(env_name: str, model1_name:str, model2_name: str, instruction_name: str):
+@app.get("/create-video-versus/")
+async def create_video_versus(env_name: str, model1_name:str, model2_name: str, instruction_name: str):
     video_path1 = prompt2video(env_name, model1_name, instruction_name)
     logger.info(f"saved video1 to {video_path1}")
 
@@ -263,6 +263,24 @@ async def create_video(env_name: str, model1_name:str, model2_name: str, instruc
     
     logger.info(f"saved video to {merged_video_path}")
     return StreamingResponse(io.open(merged_video_path, "rb"), media_type="video/mp4")
+
+@app.get("/create-video/")
+async def create_video(env_name: str, model1_name:str, instruction_name: str):
+    video_path1 = prompt2video(env_name, model1_name, instruction_name)
+    video_path_color = generate_video_path()
+
+    logger.info(f"saved video1 to {video_path1}")
+    command = f'ffmpeg -i {video_path1} -vf "colorchannelmixer=rr=0:rg=0:rb=1:gr=0:gg=1:gb=0:br=1:bg=0:bb=0" {video_path_color}'
+    
+    try:
+        subprocess.run(command, check=True, shell=True)
+
+        print("command run")
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+
+    return StreamingResponse(io.open(video_path_color, "rb"), media_type="video/mp4")
+
 
 if __name__ == "__main__":
     import uvicorn
