@@ -21,3 +21,5 @@ cd ./octo && git checkout 653c54acde686fde619855f2eac0dd6edad7116b && cd ..
 pip3 install -e ./octo
 
 #pip install --quiet mediapy
+pip3 install tensorflow-probability==0.22.1
+
