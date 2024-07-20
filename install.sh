@@ -24,3 +24,10 @@ pip install --quiet mediapy
 pip3 install tensorflow-probability==0.22.1
 pip3 install --upgrade typing_extensions
 
+pip3 install fastapi uvicorn 
+python -m pip install tensorflow[and-cuda]==2.14.0
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+
+mamba install cudnn=8.8 cuda-version=11.8
+pip install --upgrade "jax[cuda11_pip]==0.4.20" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
