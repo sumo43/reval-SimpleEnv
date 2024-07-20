@@ -1,5 +1,7 @@
 # @title Setup
 
+import sapien.core as sapien
+
 import os
 import numpy as np
 import simpler_env
@@ -30,6 +32,7 @@ if 'env' in locals():
   print("Closing existing env")
   env.close()
   del env
+    
 env = simpler_env.make(task_name)
 
 # Note: we turned off the denoiser as the colab kernel will crash if it's turned on

@@ -36,32 +36,20 @@ def run_cmd(cmd:str ):
     tmp = proc.stdout.read()
     return tmp
 
-def get_rt_1_checkpoint(name, ckpt_dir="./checkpoints"):
+BASE_PATH="/workspace/videos"
+
+
+def get_rt_1_checkpoint(name, ckpt_dir="./SimplerEnv/checkpoints"):
   assert name in RT_1_CHECKPOINTS, name
   ckpt_name = RT_1_CHECKPOINTS[name]
   ckpt_path = os.path.join(ckpt_dir, ckpt_name)
-  print(ckpt_path)
   if not os.path.exists(ckpt_path):
     if name == "rt_1_x":
-      command = ["gsutil", "-m", "cp", "-r", f"gs://gdm-robotics-open-x-embodiment/open_x_embodiment_and_rt_x_oss/{ckpt_name}.zip", f"{ckpt_dir}"]
-      try:
-        subprocess.run(command, check=True)
-        print("command run")
-      except subprocess.CalledProcessError as e:
-        print(e.output)
-
-      command = ["unzip", f"{ckpt_dir}/{ckpt_name}.zip", "-d", f"{ckpt_dir}"]
-
-      try:
-        subprocess.run(command, check=True)
-        print("command run")
-      except subprocess.CalledProcessError as e:
-        print(e.output)
+      os.system(f"gsutil -m cp -r gs://gdm-robotics-open-x-embodiment/open_x_embodiment_and_rt_x_oss/{ckpt_name}.zip {ckpt_dir}")
+      os.system(f"unzip {ckpt_dir}/{ckpt_name}.zip -d {ckpt_dir}")
     else:
-      run_cmd(f"gsutil -m cp -r gs://gdm-robotics-open-x-embodiment/open_x_embodiment_and_rt_x_oss/{ckpt_name} {ckpt_dir}")
+      os.system(f"gsutil -m cp -r gs://gdm-robotics-open-x-embodiment/open_x_embodiment_and_rt_x_oss/{ckpt_name} {ckpt_dir}")
   return ckpt_path
-
-BASE_PATH="/workspace/videos"
 
 app = FastAPI()
 
@@ -79,9 +67,9 @@ policy_setup = "google_robot"
 
 model_names = ["rt_1_x", "rt_1_400k", "rt_1_58k", "rt_1_1k", "octo-base", "octo-small"]
 
-#ckpt_path = get_rt_1_checkpoint("rt_1_x")
-#rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-#print("loaded rt_1_x")
+ckpt_path = get_rt_1_checkpoint("rt_1_x")
+rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+print("loaded rt_1_x")
 
 #ckpt_path = get_rt_1_checkpoint("rt_1_400k")
 #rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
@@ -102,7 +90,7 @@ octo_small = OctoInference(model_type='octo-small', policy_setup=policy_setup)
 print("loaded octo small")
 
 model_name_to_model = {
-    #"rt_1_x" : rt_1_x_model,
+    "rt_1_x" : rt_1_x_model,
     #"rt_1_400k": rt_1_400k_model,
     #"rt_1_58k": rt_1_58k_model,
     #"rt_1_1k": rt_1_1k_model,
@@ -165,11 +153,10 @@ def run_env(env, instruction, model_name, env_name):
     images = [image]
     predicted_terminated, success, truncated = False, False, False
     timestep = 0
-    raw_action, action = None, None
+    #raw_action, action = None, None
     while not (predicted_terminated or truncated):
         # step the model; "raw_action" is raw model action output; "action" is the processed action to be sent into maniskill env
-        if raw_action is None:
-            raw_action, action = model.step(image)
+        raw_action, action = model.step(image)
         predicted_terminated = bool(action["terminate_episode"][0] > 0)
         obs, reward, success, truncated, info = env.step(
             np.concatenate([action["world_vector"], action["rot_axangle"], action["gripper"]])
@@ -180,7 +167,7 @@ def run_env(env, instruction, model_name, env_name):
         images.append(image)
         timestep += 1
 
-        if timestep == 11:
+        if timestep == 40:
             break
     return images
 
@@ -208,20 +195,25 @@ def prompt2video(env_name: str, model_name: str, instruction_name:str):
 
 def merge_videos(video1_path, video2_path):
     merged_video_path = generate_video_path()
+    merged_video_path2 =  generate_video_path()
 
     command = f'ffmpeg -i {video1_path} -i {video2_path} -filter_complex "[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]" -map "[vid]" -c:v libx264 -crf 23 -preset veryfast {merged_video_path}'
+    command2 = f'ffmpeg -i {merged_video_path} -vf "colorchannelmixer=rr=0:rg=0:rb=1:gr=0:gg=1:gb=0:br=1:bg=0:bb=0" {merged_video_path2}'
+
     #command = ["ffmpeg", "-i", video1_path, "-i", video2_path, "-filter_complex", 
     #'"[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]"', "-map", "'[vid]'", "-c:v", "libx264", "-crf", "23", "-preset", "veryfast", merged_video_path]
 
     try:
         subprocess.run(command, check=True, shell=True)
+        subprocess.run(command2, check=True, shell=True)
+
         print("command run")
     except subprocess.CalledProcessError as e:
         print(e.output)
                                                                                                                                                                             
-    return merged_video_path
+    return merged_video_path2
 
-@app.post("/create-video/")
+@app.get("/create-video/")
 async def create_video(env_name: str, model1_name:str, model2_name: str, instruction_name: str):
     video_path1 = prompt2video(env_name, model1_name, instruction_name)
     logger.info(f"saved video1 to {video_path1}")
