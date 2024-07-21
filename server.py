@@ -164,40 +164,47 @@ def run_env(env, instruction, model_name, env_name):
             
     elif 'octo' in model_name:
         if "widowx" in env_name:
+            print("runnign widowx env setup")
             model.policy_setup = "widowx_bridge"
             model.dataset_id = "bridge_dataset"
             model.action_ensemble = True
             model.action_ensemble_temp = 0.0
             model.sticky_gripper_num_repeat = 1
             
-            #model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
+            model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
             
         elif "google" in env_name:
+            print("running google env setup")
             model.policy_setup = "google_robot"
             model.dataset_id = "fractal20220817_data"
             model.action_ensemble = True
             model.action_ensemble_temp = 0.0
             model.sticky_gripper_num_repeat = 15
 
-            #model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
+            model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
         else:
             raise NotImplementedError(f"Policy setup {policy_setup} not supported for octo models.")
 
-            model.action_mean = model.model.dataset_statistics[model.dataset_id]["action"]["mean"]
-            model.action_std = model.model.dataset_statistics[model.dataset_id]["action"]["std"]
-
+        model.action_mean = model.model.dataset_statistics[model.dataset_id]["action"]["mean"]
+        model.action_std = model.model.dataset_statistics[model.dataset_id]["action"]["std"]
 
     else:
         raise NotImplementedError(f"model {model_name} not supported.")
-
-    obs, reset_info = env.reset()
-
-
-
+    print(f"env_name: {env_name}")
+    vars(model).keys()
+    
+    model_d = vars(model)
+    for key in model_d.keys():
+        if key != 'model':
+            print(key, model_d[key])
+    
+    print(vars(model_d['action_ensembler']))
     #instruction = env.get_language_instruction()
     model.reset(instruction)
     print(instruction)
     
+    obs, reset_info = env.reset()
+
     image = get_image_from_maniskill2_obs_dict(env, obs)  # np.ndarray of shape (H, W, 3), uint8
     images = [image]
     predicted_terminated, success, truncated = False, False, False
