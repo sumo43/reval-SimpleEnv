@@ -82,21 +82,21 @@ policy_setup = "google_robot"
 
 model_names = ["rt_1_x", "rt_1_400k", "rt_1_58k", "rt_1_1k", "octo-base", "octo-small"]
 
-ckpt_path = get_rt_1_checkpoint("rt_1_x")
-rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-print("loaded rt_1_x")
+#ckpt_path = get_rt_1_checkpoint("rt_1_x")
+#rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+#print("loaded rt_1_x")
 
-ckpt_path = get_rt_1_checkpoint("rt_1_400k")
-rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-print("loaded rt_1_400k")
+#ckpt_path = get_rt_1_checkpoint("rt_1_400k")
+#rt_1_400k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+#print("loaded rt_1_400k")
 
-ckpt_path = get_rt_1_checkpoint("rt_1_58k")
-rt_1_58k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-print("loaded rt_1_58k")
+#ckpt_path = get_rt_1_checkpoint("rt_1_58k")
+#rt_1_58k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+#print("loaded rt_1_58k")
 
-ckpt_path = get_rt_1_checkpoint("rt_1_1k")
-rt_1_1k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-print("loaded rt_1_1k")
+#ckpt_path = get_rt_1_checkpoint("rt_1_1k")
+#rt_1_1k_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
+#print("loaded rt_1_1k")
 
 octo_base = OctoInference(model_type='octo-base', policy_setup=policy_setup)
 print("loaded octo base")
@@ -105,10 +105,10 @@ octo_small = OctoInference(model_type='octo-small', policy_setup=policy_setup)
 print("loaded octo small")
 
 model_name_to_model = {
-    "rt_1_x" : rt_1_x_model,
-    "rt_1_400k": rt_1_400k_model,
-    "rt_1_58k": rt_1_58k_model,
-    "rt_1_1k": rt_1_1k_model,
+    #"rt_1_x" : rt_1_x_model,
+    #"rt_1_400k": rt_1_400k_model,
+    #"rt_1_58k": rt_1_58k_model,
+    #"rt_1_1k": rt_1_1k_model,
     "octo-small": octo_small,
     "octo-base": octo_base
 }
@@ -143,7 +143,10 @@ def setup_env(env_name: str, instruction: str):
 
 def run_env(env, instruction, model_name, env_name):
 
+    print(f"running model {model_name}")
+
     model = model_name_to_model[model_name]
+
     # set the policy setup from the ntbk without reinit
     if 'rt' in model_name:
         if 'google' in env_name:
@@ -153,35 +156,44 @@ def run_env(env, instruction, model_name, env_name):
             model.invert_gripper_action = False
             model.action_rotation_mode = "axis_angle"
         elif 'widowx' in env_name:
-            model.policy_setup = "google_robot"
+            model.policy_setup = "widowx_bridge"
             model.unnormalize_action = True
             model.unnormalize_action_fxn = model._unnormalize_action_widowx_bridge
             model.invert_gripper_action = True
             model.action_rotation_mode = "rpy" 
             
     elif 'octo' in model_name:
-        if policy_setup == "widowx_bridge":
-            model.dataset_id = env_name
+        if "widowx" in env_name:
+            model.policy_setup = "widowx_bridge"
+            model.dataset_id = "bridge_dataset"
             model.action_ensemble = True
             model.action_ensemble_temp = 0.0
             model.sticky_gripper_num_repeat = 1
             
-            model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
+            #model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
             
-        elif policy_setup == "google_robot":
-            model.dataset_id = env_name
+        elif "google" in env_name:
+            model.policy_setup = "google_robot"
+            model.dataset_id = "fractal20220817_data"
             model.action_ensemble = True
             model.action_ensemble_temp = 0.0
             model.sticky_gripper_num_repeat = 15
 
-            model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
+            #model.action_ensembler = ActionEnsembler(model.pred_action_horizon, model.action_ensemble_temp)
         else:
             raise NotImplementedError(f"Policy setup {policy_setup} not supported for octo models.")
+
+            model.action_mean = model.model.dataset_statistics[model.dataset_id]["action"]["mean"]
+            model.action_std = model.model.dataset_statistics[model.dataset_id]["action"]["std"]
+
+
     else:
         raise NotImplementedError(f"model {model_name} not supported.")
 
-    
     obs, reset_info = env.reset()
+
+
+
     #instruction = env.get_language_instruction()
     model.reset(instruction)
     print(instruction)
@@ -204,7 +216,7 @@ def run_env(env, instruction, model_name, env_name):
         images.append(image)
         timestep += 1
 
-        if timestep == 40:
+        if timestep == 80:
             break
     return images
 
