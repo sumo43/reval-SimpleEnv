@@ -16,6 +16,8 @@ from simpler_env.policies.rt1.rt1_model import RT1Inference
 import subprocess
 import absl.logging
 from simpler_env.policies.octo.octo_model import OctoInference
+from simpler_env.policies.openvla.openvla_model import OpenVLAInference
+
 from uuid import uuid4
 from time import sleep
 
@@ -74,13 +76,14 @@ model_names = [
     "rt_1_58k",
     "rt_1_1k",
     "octo_base",
-    "octo_small"
+    "octo_small", 
+    "openvla"
 ]
 
 policy_setup = "google_robot"
 
 
-model_names = ["rt_1_x", "rt_1_400k", "rt_1_58k", "rt_1_1k", "octo-base", "octo-small"]
+openvla = OpenVLAInference(policy_setup=policy_setup)
 
 #ckpt_path = get_rt_1_checkpoint("rt_1_x")
 #rt_1_x_model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
@@ -110,7 +113,8 @@ model_name_to_model = {
     #"rt_1_58k": rt_1_58k_model,
     #"rt_1_1k": rt_1_1k_model,
     "octo-small": octo_small,
-    "octo-base": octo_base
+    "octo-base": octo_base,
+    "openvla": openvla
 }
 
 def setup_env(env_name: str, instruction: str):

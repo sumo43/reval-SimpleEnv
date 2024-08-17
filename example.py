@@ -208,20 +208,11 @@ else:
 
 
 # @title Select your model and environment
+from simpler_env.policies.openvla.openvla_model import RT1Inference
 
-model_name = "octo-base" # @param ["rt_1_x", "rt_1_400k", "rt_1_58k", "rt_1_1k", "octo-base", "octo-small"]
+#model_name = "octo-base" # @param ["rt_1_x", "rt_1_400k", "rt_1_58k", "rt_1_1k", "octo-base", "octo-small"]
 
-if "rt_1" in model_name:
-  from simpler_env.policies.rt1.rt1_model import RT1Inference
-
-  ckpt_path = get_rt_1_checkpoint(model_name)
-  model = RT1Inference(saved_model_path=ckpt_path, policy_setup=policy_setup)
-elif "octo" in model_name:
-  from simpler_env.policies.octo.octo_model import OctoInference
-
-  model = OctoInference(model_type=model_name, policy_setup=policy_setup, init_rng=0)
-else:
-  raise ValueError(model_name)
+model = OpenVLAInference(policy_setup=policy_setup, init_rng=0)
 
 
 # In[10]:
