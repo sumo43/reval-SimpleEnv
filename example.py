@@ -208,11 +208,11 @@ else:
 
 
 # @title Select your model and environment
-from simpler_env.policies.openvla.openvla_model import RT1Inference
+from simpler_env.policies.openvla.openvla_model import OpenVLAInference
 
 #model_name = "octo-base" # @param ["rt_1_x", "rt_1_400k", "rt_1_58k", "rt_1_1k", "octo-base", "octo-small"]
 
-model = OpenVLAInference(policy_setup=policy_setup, init_rng=0)
+model = OpenVLAInference(policy_setup=policy_setup)
 
 
 # In[10]:
@@ -231,7 +231,7 @@ predicted_terminated, success, truncated = False, False, False
 timestep = 0
 while not (predicted_terminated or truncated):
     # step the model; "raw_action" is raw model action output; "action" is the processed action to be sent into maniskill env
-    raw_action, action = model.step(image)
+    raw_action, action = model.step(image, instruction)
     predicted_terminated = bool(action["terminate_episode"][0] > 0)
     obs, reward, success, truncated, info = env.step(
         np.concatenate([action["world_vector"], action["rot_axangle"], action["gripper"]])
@@ -249,8 +249,8 @@ print(f"Episode success: {success}")
 # In[11]:
 
 
-print(task_name, model_name)
-mediapy.show_video(images, fps=10)
+#print(task_name, model_name)
+#mediapy.show_video(images, fps=10)
 
 
 # ## Gallery
@@ -259,8 +259,8 @@ mediapy.show_video(images, fps=10)
 
 
 # @markdown RT-1-X close drawer
-print(task_name, model_name)
-mediapy.show_video(images, fps=10)
+#print(task_name, model_name)
+#mediapy.show_video(images, fps=10)
 # Note: we turned off the denoiser as the colab kernel will crash if it's turned on
 # To use the denoiser, please git clone our SIMPLER environments
 # and perform evaluations locally.
@@ -270,6 +270,6 @@ mediapy.show_video(images, fps=10)
 
 
 # @markdown Octo-base widowx_put_eggplant_in_basket
-print(task_name, model_name)
-mediapy.show_video(images, fps=10)
+#print(task_name, model_name)
+#mediapy.show_video(images, fps=10)
 

@@ -20,4 +20,3 @@ wandb
 einops
 transformers
 scipy==1.12.0
-numpy==1.24.0
