@@ -31,3 +31,6 @@ python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU')
 mamba install cudnn=8.8 cuda-version=11.8
 pip install --upgrade "jax[cuda11_pip]==0.4.20" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
+pip3 install torch timm accelerate torchvision
+pip install flash-attn --no-build-isolation
+
