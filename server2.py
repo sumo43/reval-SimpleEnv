@@ -301,4 +301,4 @@ async def create_video(env_name: str, model1_name:str, instruction_name: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=80)
+    uvicorn.run(app, host="0.0.0.0", port=6902)
